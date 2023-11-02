@@ -9,8 +9,8 @@
 //MQTT set up
 const char* ssid = "notyouriphone";
 const char* password = "hidejy123";
-char *server = "mqtt://172.20.10.2:1883"; 
-char *subscribeTopic = "classification";
+char *server = "mqtt://172.20.10.3:1883"; 
+char *subscribeTopic = "arduino/command";
 ESP32MQTTClient mqttClient; 
 int passcount = 0;
 
@@ -40,7 +40,8 @@ UniversalTelegramBot bot(BOTtoken, client);
 // Checks for new messages every 1 second.
 int botRequestDelay = 50;
 unsigned long lastTimeBotRan;
-
+// To store received Telegram message
+String telegramMessage = ""; 
 
 // Handle what happens when you receive new messages
 void handleNewMessages(int numNewMessages) {
@@ -70,12 +71,16 @@ void handleNewMessages(int numNewMessages) {
 
     if (text == "/unlock") {
     bot.sendMessage(chat_id, "Unlocking door", "");
-    pwm.writeScaled(0.025);
+    // pwm.writeScaled(0.025);
     }
 
     if (text == "/lock") {
     bot.sendMessage(chat_id, "Locking door", "");
-    pwm.writeScaled(0.075);
+    // pwm.writeScaled(0.075);
+    }
+    if (text == "/unlock" || text == "/lock") {
+      telegramMessage = text;
+      mqttClient.publish("telegram/command", text.c_str());
     }
   }
 }
@@ -136,6 +141,11 @@ void handleClassificationResponse(const String &payload) {
     sleepDevice();
     }
   }
+    if (payload == "unlock") {
+    pwm.writeScaled(0.025);
+  } else if (payload == "lock") {
+    pwm.writeScaled(0.075);
+  }
 }
 
 void sleepDevice() {
@@ -149,18 +159,24 @@ void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
     if (mqttClient.isMyTurn(client)) // can be omitted if only one client
     {    
         mqttClient.subscribe(subscribeTopic, [](const String &payload)
-                             {Serial.println(String(subscribeTopic)+String(" ")+String(payload.c_str())) ; 
-                              if (String(payload.c_str()) == String ("password correct")){
-                                handleClassificationResponse(payload);
-                              }
-                              else if(String(payload.c_str()) == String ("wrong password")){
-                                handleClassificationResponse(payload);
-                              }
+                             {Serial.println(String(subscribeTopic) + String(" ") + String(payload.c_str())) ; 
+                              handleClassificationResponse(payload);
+                             });
+
+        mqttClient.subscribe("telegram/command", [](const String &payload)
+                             {Serial.println(String("telegram/command ") + String(payload.c_str())); 
+                              handleTelegramCommand(payload);
                              });
 
         mqttClient.subscribe("bar/#", [](const String &topic, const String &payload)
                              {Serial.println(String(subscribeTopic)+String(" ")+String(payload.c_str())); });
     }
+}
+
+void handleTelegramCommand(const String &payload) {
+  if (payload == "/unlock" || payload == "/lock") {
+    handleClassificationResponse(payload);
+  }
 }
 
 esp_err_t handleMQTT(esp_mqtt_event_handle_t event)

@@ -7,7 +7,7 @@ char *server = "mqtt://172.20.10.2:1883";
 char *subscribeTopic = "power"; // maybe subscribe to other sensor to turn on this as well
 ESP32MQTTClient mqttClient;
 
-int inputPin = 8;               // choose the input pin (for PIR sensor)
+int inputPin = 18;               // choose the input pin (for PIR sensor)
 int pirState = LOW;             // we start, assuming no motion detected
 int val = 0;                    // variable for reading the pin status
  
@@ -34,19 +34,17 @@ void setup() {
 void loop() {
   val = digitalRead(inputPin);  // read input value
 
-  if (val == HIGH) {            // check if the input is HIGH
-    if (pirState == LOW) {
+  if (val == HIGH) {     
+      mqttClient.publish("motion", "object detected");       // check if the input is HIGH
       Serial.println("Motion detected!");  // print on output change
-      mqttClient.publish("motion", "object detected");
-      pirState = HIGH;
+      delay(3000);
     }
-  } else {
-    if (pirState == HIGH) {
+    else {
       Serial.println("Motion ended!");  // print on output change
       mqttClient.publish("motion", "no object");
-      pirState = LOW;
+      delay(3000);
     }
-  }
+  
 }
 
 void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
