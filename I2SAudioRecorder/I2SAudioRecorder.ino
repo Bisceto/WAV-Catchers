@@ -19,11 +19,11 @@ const char *pass = "wav_catchers";
 
 char *server = "mqtt://192.168.15.242:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
 
-char *startRecordingTopic = "sensors/microphone/recording_started";    // Published when recording is started
-char *addAudioSnippetTopic = "sensors/microphone/snippet";   // Published with byte array of audio data while recording
+char *startRecordingTopic = "sensors/microphone/recording_started";     // Published when recording is started
+char *addAudioSnippetTopic = "sensors/microphone/snippet";              // Published with byte array of audio data while recording
 char *endRecordingTopic = "sensors/microphone/recording_finished";      // Published when recording has ended
 
-char *lcdDisplayTopic = "actuators/lcd/display_message"; // Subscribe for when server request to display a message on LCD
+char *lcdDisplayTopic = "actuators/lcd/display_message";                // Subscribe for when server request to display a message on LCD
 
 ESP32MQTTClient mqttClient; // all params are set later
 
