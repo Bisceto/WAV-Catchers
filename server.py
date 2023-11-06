@@ -6,7 +6,7 @@ from time import sleep
 import urllib.request
 import numpy as np
 
-
+password_audio_filename : str = 'recording.wav'
 client = mqtt.Client()
 
 def on_connect(client, userdata, flags, rc):
@@ -25,8 +25,31 @@ def on_message(client, userdata, message):
         save_audio_file(topic, data, timestamp)
     elif topic == "telegram/command":
         handle_telegram_command(client, data)
+    elif topic.startswith("sensors/microphone/snippet"):
+        save_audio_snippet(message.payload)
+        print("Audio message received of length", len(message.payload))
+    elif topic.startswith("sensors/microphone/recording_finished"):
+        #is_microphone_recording = False
+        print("Microphone recording finished")
+        
+        # Test LCD
+        example_incorrect_password = "0-1-2-3"
+        client.publish("actuators/lcd/display_message", "Wrong Password!\n" + example_incorrect_password)
+        
+    elif topic.startswith("sensors/microphone/recording_started"):
+        #is_microphone_recording = True
+        clear_recording()
+        print("Microphone has started recording")
 
     print("Received message")
+
+def clear_recording():
+    open(password_audio_filename, 'w').close()
+
+def save_audio_snippet(message_payload : str):
+    f = open(password_audio_filename, 'ab')
+    f.write(message_payload)
+    f.close()
 
 def save_audio_file(topic, data, timestamp):
     filename = topic.split("/")[-1] + str(timestamp)
