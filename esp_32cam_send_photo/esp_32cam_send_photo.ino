@@ -4,6 +4,8 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 #include "esp_camera.h"
+#include <WiFiClientSecure.h>
+#include "ESP32MQTTClient.h"
 //======================================== 
 
 //======================================== CAMERA_MODEL_AI_THINKER GPIO.
@@ -32,6 +34,10 @@
 //======================================== Insert your network credentials.
 const char* ssid = "notyouriphone";
 const char* password = "hidejy123";
+char *server = "mqtt://172.20.10.2:1883"; // wifi ip4 address
+char *subscribeTopic = "classification";
+ESP32MQTTClient mqttClient; 
+bool sendPhotos = true;
 //======================================== 
 
 //======================================== Variables for Timer/Millis.
@@ -192,7 +198,13 @@ void setup() {
   Serial.print("Connecting to : ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
-  
+  //mqtt setup
+  mqttClient.enableDebuggingMessages();
+  mqttClient.setURI(server);
+  mqttClient.enableLastWillMessage("lwt", "I am going offline");
+  mqttClient.setKeepAlive(30);
+  WiFi.setHostname("c3test");
+  mqttClient.loopStart();
   // The process timeout of connecting ESP32 CAM with WiFi Hotspot / WiFi Router is 20 seconds.
   // If within 20 seconds the ESP32 CAM has not been successfully connected to WiFi, the ESP32 CAM will restart.
   // I made this condition because on my ESP32-CAM, there are times when it seems like it can't connect to WiFi, so it needs to be restarted to be able to connect to WiFi.
@@ -295,12 +307,46 @@ void loop() {
 
   //---------------------------------------- Timer/Millis to capture and send photos to server every 20 seconds (see Interval variable).
   unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= Interval) {
+  if (currentMillis - previousMillis >= Interval && sendPhotos) {
     previousMillis = currentMillis;
-    
     sendPhotoToServer();
   }
   //---------------------------------------- 
 }
+
+void handleClassificationResponse(const String &payload) {  
+  if (payload == "Take photo") {
+    sendPhotos = true;
+  } else if (payload == "Don't take photo") {
+    sendPhotos = false;
+  } 
+}
+
+
+
+void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
+{
+    if (mqttClient.isMyTurn(client)) // can be omitted if only one client
+    {    
+        mqttClient.subscribe(subscribeTopic, [](const String &payload)
+                             {Serial.println(String(subscribeTopic)+String(" ")+String(payload.c_str())) ; 
+                              if (String(payload.c_str()) == String ("Take photo")){
+                                handleClassificationResponse(payload);
+                              }
+                              else if(String(payload.c_str()) == String ("Don't take photo")){
+                                handleClassificationResponse(payload);
+                              }
+                             });
+
+        mqttClient.subscribe("bar/#", [](const String &topic, const String &payload)
+                             {Serial.println(String(subscribeTopic)+String(" ")+String(payload.c_str())); });
+    }
+}
+
+esp_err_t handleMQTT(esp_mqtt_event_handle_t event)
+  {
+    mqttClient.onEventCallback(event);
+    return ESP_OK;
+  }
 //________________________________________________________________________________ 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
