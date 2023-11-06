@@ -1,0 +1,4 @@
+Use test_full and upload to esp32. Esp32 should be connected to INMP441 I2S microphone and a PushButton
+Download model_hf.pth from https://drive.google.com/drive/folders/1ENfQTFXGcbSBWj32beGirt5z8vfk-5hh
+Copy/Cut model_hf.pth to same folder as the folder
+Run full_test.py. full_test.py initializes the HUBERT model, run flask server and waits for HTTP get response. It then downloads recording.wav from ESP32.
