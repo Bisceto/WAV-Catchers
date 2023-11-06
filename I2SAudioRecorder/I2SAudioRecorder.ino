@@ -95,7 +95,9 @@ void record_and_transmit_audio(void *param)
   // Read and Transmit
 
   // broadcast that recording has begun
-  //mqttClient.publish(startRecordingTopic, "\0", 1);
+  String startingPayload = String(WAV_RECORD_SIZE);
+  mqttClient.publish(startRecordingTopic, (char *) startingPayload.c_str(), startingPayload.length());
+  display_message("Recording...");
 
   //
   size_t published_byte_count = 0; // excluding header
@@ -137,9 +139,10 @@ void record_and_transmit_audio(void *param)
   }
 
   // finish recording
-  String payload = String(published_byte_count);
-  mqttClient.publish(endRecordingTopic, (char *) payload.c_str(), payload.length());
+  String endingPayload = String(published_byte_count);
+  mqttClient.publish(endRecordingTopic, (char *) endingPayload.c_str(), endingPayload.length());
   Serial.println(" *** Recording Finished *** ");
+  display_message("Please wait...");
 
   // free memory
   free(read_buffer);
@@ -162,6 +165,15 @@ void i2s_adc_data_scale(uint8_t * d_buff, uint8_t* s_buff, uint32_t len)
     }
 }
 
+
+void display_message(const char *message)
+{
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(message);
+}
+
+
 void loop() {
 }
 
@@ -171,7 +183,7 @@ void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
     if (mqttClient.isMyTurn(client)) // can be omitted if only one client
     {
         mqttClient.subscribe(lcdDisplayTopic, [](const String &payload)
-                             { lcd.print(payload.c_str()); });
+                             { display_message(payload.c_str()); });
 
         mqttClient.subscribe("bar/#", [](const String &topic, const String &payload)
                              { log_i("%s: %s", topic, payload.c_str()); });
