@@ -9,30 +9,40 @@
 #include <WiFi.h>
 #include "CustomESP32MQTTClient.h"
 
+#include <LiquidCrystal_I2C.h>
+
 #define CONNECTION_TIMEOUT 20
 
 // MQTT Settings
 const char *ssid = "AndroidAP3542";
-const char *pass = "platformer420";
+const char *pass = "wav_catchers";
 
-char *server = "mqtt://192.168.36.242:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
+char *server = "mqtt://192.168.187.242:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
 
 char *startRecordingTopic = "sensors/microphone/recording_started";    // Published when recording is started
 char *addAudioSnippetTopic = "sensors/microphone/snippet";   // Published with byte array of audio data while recording
 char *endRecordingTopic = "sensors/microphone/recording_finished";      // Published when recording has ended
 
-char *subscribeTopic = "placeholder";
+char *lcdDisplayTopic = "actuators/lcd/display_message";
 
 ESP32MQTTClient mqttClient; // all params are set later
 
 // I2S Settings
 byte header[WAV_HEADER_SIZE];
 
+// LCD Settings
+LiquidCrystal_I2C lcd(0x27, 16, 2);  
+
 
 void setup() {
 
   // Initialise Serial Output
   Serial.begin(115200);
+
+  // Initialise LCD
+  lcd.init();
+  lcd.clear();                   
+  lcd.backlight();
 
   // Setup MQTT
   log_i();
@@ -160,8 +170,8 @@ void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
 {
     if (mqttClient.isMyTurn(client)) // can be omitted if only one client
     {
-        mqttClient.subscribe(subscribeTopic, [](const String &payload)
-                             { log_i("%s: %s", subscribeTopic, payload.c_str()); });
+        mqttClient.subscribe(lcdDisplayTopic, [](const String &payload)
+                             { lcd.print(payload.c_str()); });
 
         mqttClient.subscribe("bar/#", [](const String &topic, const String &payload)
                              { log_i("%s: %s", topic, payload.c_str()); });

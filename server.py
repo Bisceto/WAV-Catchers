@@ -21,6 +21,10 @@ def on_message(client, userdata, message):
     if topic.startswith("sensors/microphone/recording_finished"):
         #is_microphone_recording = False
         print("Microphone recording finished")
+        
+        # Test LCD
+        client.publish("actuators/lcd/display_message", "Wrong Password!")
+        
     if topic.startswith("sensors/microphone/recording_started"):
         #is_microphone_recording = True
         clear_recording()
