@@ -17,13 +17,13 @@
 const char *ssid = "AndroidAP3542";
 const char *pass = "wav_catchers";
 
-char *server = "mqtt://192.168.187.242:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
+char *server = "mqtt://192.168.15.242:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
 
 char *startRecordingTopic = "sensors/microphone/recording_started";    // Published when recording is started
 char *addAudioSnippetTopic = "sensors/microphone/snippet";   // Published with byte array of audio data while recording
 char *endRecordingTopic = "sensors/microphone/recording_finished";      // Published when recording has ended
 
-char *lcdDisplayTopic = "actuators/lcd/display_message";
+char *lcdDisplayTopic = "actuators/lcd/display_message"; // Subscribe for when server request to display a message on LCD
 
 ESP32MQTTClient mqttClient; // all params are set later
 
@@ -59,6 +59,7 @@ void setup() {
   int timeout_counter = 0;
 
   Serial.println("Connecting...");
+  lcd.print("Connecting...");
   if (WiFi.status() != WL_CONNECTED) {
     while (WiFi.status() != WL_CONNECTED) {
       Serial.print('.');
@@ -71,6 +72,7 @@ void setup() {
     }
   }
   Serial.println("Connected to WiFi!");
+  lcd.print("Connected to\nWiFi!");
   Serial.print("Local ESP32 IP: ");
   Serial.println(WiFi.localIP());
 
@@ -168,9 +170,25 @@ void i2s_adc_data_scale(uint8_t * d_buff, uint8_t* s_buff, uint32_t len)
 
 void display_message(const char *message)
 {
+  // clear screen
   lcd.clear();
+  
+  // message into 2 substrings by linebreak
+  String readString = String(message);
+  int linebreak_index = readString.indexOf('\n');
+
+  // top line
+  String top = readString.substring(0, linebreak_index);
   lcd.setCursor(0, 0);
-  lcd.print(message);
+  lcd.print(top);
+
+  // bottom line
+  if (linebreak_index != -1) 
+  {
+    String bottom = readString.substring(linebreak_index, readString.length());
+    lcd.setCursor(0, 1);
+    lcd.print(bottom);
+  }
 }
 
 
