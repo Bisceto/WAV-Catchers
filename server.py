@@ -16,7 +16,7 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, message):
     topic = message.topic
-    data = message.payload.decode()
+    data = message.payload
     timestamp = time()
     
     if topic.startswith("sensors/motion"):

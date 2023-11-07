@@ -1,5 +1,6 @@
 // Modified from https://github.com/MhageGH/esp32_SoundRecorder/tree/master
 // by MhageGH
+// Rememeber to change ssid, pass and I2S pin numbers
 
 #include "Arduino.h"
 #include <FS.h>
@@ -13,11 +14,18 @@
 
 #define CONNECTION_TIMEOUT 20
 
-// MQTT Settings
-const char *ssid = "AndroidAP3542";
-const char *pass = "wav_catchers";
+// Push Button , LED
+#define LED 25 // LED Pin
+#define PB_PIN 4  // PushButton Pin
+#define TDELAY 1000
+volatile bool pressed = false;
+volatile unsigned long pressedtime = 0;
 
-char *server = "mqtt://192.168.15.242:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
+// MQTT Settings
+const char *ssid = "POCOF5";
+const char *pass = "qqqqqqqqq";
+
+char *server = "mqtt://192.168.39.243:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
 
 char *startRecordingTopic = "sensors/microphone/recording_started";     // Published when recording is started
 char *addAudioSnippetTopic = "sensors/microphone/snippet";              // Published with byte array of audio data while recording
@@ -33,11 +41,23 @@ byte header[WAV_HEADER_SIZE];
 // LCD Settings
 LiquidCrystal_I2C lcd(0x27, 16, 2);  
 
+void IRAM_ATTR isr() {
+  // only trigger a PB press after recording is done
+  if (millis() - pressedtime > RECORD_TIME * 1000 + 2000){
+    pressedtime = millis();
+    pressed = true;
+  }
+}
 
 void setup() {
 
   // Initialise Serial Output
   Serial.begin(115200);
+
+  // Initalise LED and push button
+  pinMode(PB_PIN, INPUT_PULLUP);
+  pinMode(LED, OUTPUT);
+  attachInterrupt(PB_PIN,isr,FALLING);
 
   // Initialise LCD
   lcd.init();
@@ -86,11 +106,24 @@ void setup() {
 
   delay(2000); // DO NOT REMOVE, DOES NOT RECORD PROPERLY WIHTOUT THIS
 
-  // Begin Recording
-  xTaskCreatePinnedToCore(record_and_transmit_audio, "record_and_transmit_audio", 4096, NULL, 1, NULL, 1);
-  
 }
 
+void loop() 
+{
+  if (pressed) { 
+    xTaskCreate(toggleLED, "Toggle LED",1024,NULL,1,NULL);
+    xTaskCreatePinnedToCore(record_and_transmit_audio, "record_and_transmit_audio", 4096, NULL, 1, NULL, 1);
+    pressed = false;
+  }
+  delay(10);
+}
+
+void toggleLED(void * arg){
+  digitalWrite(LED,HIGH);
+  vTaskDelay(RECORD_TIME * 1000); // LED lights up for recording time
+  digitalWrite(LED,LOW);
+  vTaskDelete(NULL);
+}
 
 void record_and_transmit_audio(void *param)
 {
@@ -190,11 +223,6 @@ void display_message(const char *message)
     lcd.print(bottom);
   }
 }
-
-
-void loop() {
-}
-
 
 void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
 {
