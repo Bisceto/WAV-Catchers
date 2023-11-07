@@ -20,3 +20,4 @@
 #define WAV_RECORD_SIZE   ((I2S_CHANNEL_NUM * I2S_SAMPLE_RATE * I2S_SAMPLE_BITS / 8) * RECORD_TIME) // Divide by 8 to cahnge from bits to bytes
 
 void i2s_init();
+void create_wav_header(byte* header, int wav_data_size);
