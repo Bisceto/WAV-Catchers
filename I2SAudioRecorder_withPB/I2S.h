@@ -7,9 +7,9 @@
 #include <driver/i2s.h>
 #include "esp_system.h"
 
-#define I2S_WS            14
+#define I2S_WS            15
 #define I2S_SD            13
-#define I2S_SCK           12
+#define I2S_SCK           2
 #define I2S_PORT          I2S_NUM_0
 #define I2S_SAMPLE_RATE   (16000)
 #define I2S_SAMPLE_BITS   (16)
