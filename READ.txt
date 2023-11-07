@@ -1,4 +1,8 @@
-Use test_full and upload to esp32. Esp32 should be connected to INMP441 I2S microphone and a PushButton
+Initialization:
 Download model_hf.pth from https://drive.google.com/drive/folders/1ENfQTFXGcbSBWj32beGirt5z8vfk-5hh
-Copy/Cut model_hf.pth to same folder as the folder
-Run full_test.py. full_test.py initializes the HUBERT model, run flask server and waits for HTTP get response. It then downloads recording.wav from ESP32.
+Copy/Cut model_hf.pth to same folder as audioclass_mqtt.py
+
+Use audioclass_mqtt.py to start up Hubert Model and MQTT server. 
+Use I2SAudioRecorder_withPB.ino for ESP32. Remember to change SSID, Password and Pin numbers to configure the ESP32 properly.
+Once a Push Button is pressed, it will start recording and transfer audio files over MQTT to the server for x(currently 8) seconds. Once the recording is done, the .wav file is created locally on the PC and audio classification will be done.
+
