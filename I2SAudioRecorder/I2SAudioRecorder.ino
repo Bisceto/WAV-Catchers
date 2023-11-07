@@ -3,46 +3,45 @@
 
 #include "Arduino.h"
 #include <FS.h>
-#include "Wav.h"
 #include "I2S.h"
+#include "LCD.h"
 
 #include <WiFi.h>
 #include "CustomESP32MQTTClient.h"
+#include "esp_wpa2.h" //wpa2 library for connections to Enterprise networks
 
-#include <LiquidCrystal_I2C.h>
-
-#define CONNECTION_TIMEOUT 20
+#define WIFI_TIMEOUT 10 // Seconds
+#define MQTT_TIMEOUT 10 // Seconds
 
 // MQTT Settings
-const char *ssid = "AndroidAP3542";
+
+#define NUS_NET_IDENTITY "nusstu\<nusnet-ID>"  //ie nusstu\e0123456
+#define NUS_NET_USERNAME "<nusnet-ID>"
+#define NUS_NET_PASSWORD "<nusnet-password>"
+
+const char *ssid = "NUS_STU";
 const char *pass = "wav_catchers";
 
-char *server = "mqtt://192.168.15.242:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
+char *server = "mqtt://172.31.123.112:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
 
+// publishing topics
 char *startRecordingTopic = "sensors/microphone/recording_started";     // Published when recording is started
 char *addAudioSnippetTopic = "sensors/microphone/snippet";              // Published with byte array of audio data while recording
 char *endRecordingTopic = "sensors/microphone/recording_finished";      // Published when recording has ended
 
+// subscribe topics
 char *lcdDisplayTopic = "actuators/lcd/display_message";                // Subscribe for when server request to display a message on LCD
 
 ESP32MQTTClient mqttClient; // all params are set later
 
-// I2S Settings
-byte header[WAV_HEADER_SIZE];
 
-// LCD Settings
-LiquidCrystal_I2C lcd(0x27, 16, 2);  
-
-
-void setup() {
-
+void setup() 
+{
   // Initialise Serial Output
   Serial.begin(115200);
 
   // Initialise LCD
-  lcd.init();
-  lcd.clear();                   
-  lcd.backlight();
+  init_lcd();
 
   // Setup MQTT
   log_i();
@@ -54,27 +53,32 @@ void setup() {
   mqttClient.enableLastWillMessage("lwt", "I am going offline");
   mqttClient.setKeepAlive(30);
 
-  // Connect to WiFi
-  WiFi.begin(ssid, pass);
+  // Connect to WiFi delay(10);
+  WiFi.disconnect(true);
+  WiFi.begin(ssid, WPA2_AUTH_PEAP, NUS_NET_IDENTITY, NUS_NET_USERNAME, NUS_NET_PASSWORD); // without CERTIFICATE you can comment out the test_root_ca on top. Seems like root CA is included?
+ 
+  //WiFi.begin(ssid, pass);
   int timeout_counter = 0;
 
   Serial.println("Connecting...");
-  lcd.print("Connecting...");
+  printLCD("Connecting...");
+
   if (WiFi.status() != WL_CONNECTED) {
     while (WiFi.status() != WL_CONNECTED) {
       Serial.print('.');
-      delay(500);
+      delay(WIFI_TIMEOUT * 100);
 
-      if (timeout_counter++ > CONNECTION_TIMEOUT) {
+      if (timeout_counter++ > WIFI_TIMEOUT) {
         Serial.println("\nRestarting due to Connection Timeout!");
         ESP.restart();
       }
     }
   }
-  lcd.print("Connected to\nWiFi!");
+
   Serial.println("Connected to WiFi!");
   Serial.print("Local ESP32 IP: ");
   Serial.println(WiFi.localIP());
+  printLCD("Connected to\nWiFi!");
 
   WiFi.setHostname("c3test");
 
@@ -99,7 +103,7 @@ void record_and_transmit_audio(void *param)
   // broadcast that recording has begun
   String startingPayload = String(WAV_RECORD_SIZE);
   mqttClient.publishFixedLength(startRecordingTopic, (char *) startingPayload.c_str(), startingPayload.length());
-  display_message("Recording...");
+  printLCD("Recording...");
 
   //
   size_t published_byte_count = 0; // excluding header
@@ -109,6 +113,7 @@ void record_and_transmit_audio(void *param)
   uint8_t* write_buffer = (uint8_t*) calloc(I2S_READ_LEN, sizeof(char));
 
   // transmit header first
+  byte header[WAV_HEADER_SIZE];
   create_wav_header(header, WAV_RECORD_SIZE);
   mqttClient.publishFixedLength(addAudioSnippetTopic, (char *) header, WAV_HEADER_SIZE);
 
@@ -144,7 +149,7 @@ void record_and_transmit_audio(void *param)
   String endingPayload = String(published_byte_count);
   mqttClient.publishFixedLength(endRecordingTopic, (char *) endingPayload.c_str(), endingPayload.length());
   Serial.println(" *** Recording Finished *** ");
-  display_message("Please wait...");
+  printLCD("Please wait...");
 
   // free memory
   free(read_buffer);
@@ -152,7 +157,6 @@ void record_and_transmit_audio(void *param)
 
   // end task
   vTaskDelete(NULL);
-
 }
 
 
@@ -168,28 +172,7 @@ void i2s_adc_data_scale(uint8_t * d_buff, uint8_t* s_buff, uint32_t len)
 }
 
 
-void display_message(const char *message)
-{
-  // clear screen
-  lcd.clear();
-  
-  // message into 2 substrings by linebreak
-  String readString = String(message);
-  int linebreak_index = readString.indexOf('\n');
 
-  // top line
-  String top = readString.substring(0, linebreak_index);
-  lcd.setCursor(0, 0);
-  lcd.print(top);
-
-  // bottom line
-  if (linebreak_index != -1) 
-  {
-    String bottom = readString.substring(linebreak_index, readString.length());
-    lcd.setCursor(0, 1);
-    lcd.print(bottom);
-  }
-}
 
 
 void loop() {
@@ -201,7 +184,7 @@ void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
     if (mqttClient.isMyTurn(client)) // can be omitted if only one client
     {
         mqttClient.subscribe(lcdDisplayTopic, [](const String &payload)
-                             { display_message(payload.c_str()); });
+                             { printLCD(payload.c_str()); });
 
         mqttClient.subscribe("bar/#", [](const String &topic, const String &payload)
                              { log_i("%s: %s", topic, payload.c_str()); });

@@ -1,10 +1,10 @@
-import cv2
-import cvlib as cv
-from cvlib.object_detection import draw_bbox
+#import cv2
+#import cvlib as cv
+#from cvlib.object_detection import draw_bbox
 import paho.mqtt.client as mqtt
 from time import *
-import urllib.request
-import numpy as np
+#import urllib.request
+#import numpy as np
 
 password_audio_filename : str = 'recording.wav'
 attempts_left : int = 3
@@ -17,7 +17,7 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, message):
     topic = message.topic
-    data = message.payload.decode()
+    data = message.payload
     timestamp = time()
     
     if topic.startswith("sensors/motion"):
@@ -25,18 +25,14 @@ def on_message(client, userdata, message):
     elif topic.startswith("sensors/audio"):
         save_audio_file(topic, data, timestamp)
     elif topic == "telegram/command":
-        handle_telegram_command(client, data)
+        handle_telegram_command(client, data.decode())
     elif topic.startswith("sensors/microphone/snippet"):
         save_audio_snippet(message.payload)
         print("Audio message received of length", len(message.payload))
     elif topic.startswith("sensors/microphone/recording_finished"):
         #is_microphone_recording = False
         print("Microphone recording finished")
-        
-        # Test LCD
-        example_incorrect_password = "0-1-2-3"
-        client.publish("actuators/lcd/display_message", "Wrong Password!\n" + example_incorrect_password)
-        
+        client.publish("actuators/lcd/display_message", "Wrong Password!\n" + str(attempts_left) + " attempts left")
     elif topic.startswith("sensors/microphone/recording_started"):
         #is_microphone_recording = True
         clear_recording()
