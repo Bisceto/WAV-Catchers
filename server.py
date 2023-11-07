@@ -7,6 +7,7 @@ import urllib.request
 import numpy as np
 
 password_audio_filename : str = 'recording.wav'
+attempts_left : int = 3
 client = mqtt.Client()
 
 def on_connect(client, userdata, flags, rc):

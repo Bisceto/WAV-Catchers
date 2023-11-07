@@ -82,7 +82,35 @@ bool ESP32MQTTClient::setMaxPacketSize(const uint16_t size)
     return true;
 }
 
-bool ESP32MQTTClient::publish(char *topic, char *payload, int payload_length, int qos, bool retain)
+bool ESP32MQTTClient::publish(const String &topic, const String &payload, int qos, bool retain)
+{
+    // Do not try to publish if MQTT is not connected.
+    if (!isConnected()) //! isConnected())
+    {
+        if (_enableSerialLogs)
+            log_i("MQTT! Trying to publish when disconnected, skipping.");
+
+        return false;
+    }
+
+    bool success = false;
+    if (esp_mqtt_client_publish(_mqtt_client, topic.c_str(), payload.c_str(), 0, qos, retain) != -1)
+    {
+        success = true;
+    }
+
+    if (_enableSerialLogs)
+    {
+        if (success)
+            log_i("MQTT << [%s] %s\n", topic.c_str(), payload.c_str());
+        else
+            log_i("MQTT! publish failed, is the message too long ? (see setMaxPacketSize())"); // This can occurs if the message is too long according to the maximum defined in PubsubClient.h
+    }
+
+    return success;
+}
+
+bool ESP32MQTTClient::publishFixedLength(char *topic, char *payload, int payload_length, int qos, bool retain)
 {
     // Do not try to publish if MQTT is not connected.
     if (!isConnected()) //! isConnected())

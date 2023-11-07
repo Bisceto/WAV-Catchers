@@ -71,8 +71,8 @@ void setup() {
       }
     }
   }
-  Serial.println("Connected to WiFi!");
   lcd.print("Connected to\nWiFi!");
+  Serial.println("Connected to WiFi!");
   Serial.print("Local ESP32 IP: ");
   Serial.println(WiFi.localIP());
 
@@ -98,7 +98,7 @@ void record_and_transmit_audio(void *param)
 
   // broadcast that recording has begun
   String startingPayload = String(WAV_RECORD_SIZE);
-  mqttClient.publish(startRecordingTopic, (char *) startingPayload.c_str(), startingPayload.length());
+  mqttClient.publishFixedLength(startRecordingTopic, (char *) startingPayload.c_str(), startingPayload.length());
   display_message("Recording...");
 
   //
@@ -110,7 +110,7 @@ void record_and_transmit_audio(void *param)
 
   // transmit header first
   create_wav_header(header, WAV_RECORD_SIZE);
-  mqttClient.publish(addAudioSnippetTopic, (char *) header, WAV_HEADER_SIZE);
+  mqttClient.publishFixedLength(addAudioSnippetTopic, (char *) header, WAV_HEADER_SIZE);
 
   // read garbage data
   i2s_read(I2S_PORT, (void*) read_buffer, I2S_READ_LEN, &bytes_read, portMAX_DELAY);
@@ -128,7 +128,7 @@ void record_and_transmit_audio(void *param)
     i2s_adc_data_scale(write_buffer, (uint8_t*) read_buffer, I2S_READ_LEN);
 
     // publish data
-    mqttClient.publish(addAudioSnippetTopic, (char *) write_buffer, I2S_READ_LEN);
+    mqttClient.publishFixedLength(addAudioSnippetTopic, (char *) write_buffer, I2S_READ_LEN);
 
     // update guard
     published_byte_count += bytes_read;
@@ -142,7 +142,7 @@ void record_and_transmit_audio(void *param)
 
   // finish recording
   String endingPayload = String(published_byte_count);
-  mqttClient.publish(endRecordingTopic, (char *) endingPayload.c_str(), endingPayload.length());
+  mqttClient.publishFixedLength(endRecordingTopic, (char *) endingPayload.c_str(), endingPayload.length());
   Serial.println(" *** Recording Finished *** ");
   display_message("Please wait...");
 
