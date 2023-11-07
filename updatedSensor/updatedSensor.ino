@@ -12,7 +12,7 @@ const char *pass = "12345678";
 // Test Mosquitto server, see: https://test.mosquitto.org
 char *server = "mqtt://172.20.10.2:1883";
 char *subscribeTopic = "detection/camera";
-char *publishTopic = "detection/sensor";
+char *publishTopic = "sensors/motion";
 
 
 void setup() {

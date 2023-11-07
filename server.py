@@ -2,7 +2,7 @@ import cv2
 import cvlib as cv
 from cvlib.object_detection import draw_bbox
 import paho.mqtt.client as mqtt
-from time import sleep
+from time import *
 import urllib.request
 import numpy as np
 
@@ -18,10 +18,10 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, message):
     topic = message.topic
     data = message.payload.decode()
-    timestamp = time.time()
+    timestamp = time()
     
     if topic.startswith("sensors/motion"):
-        handle_motion();
+        handle_motion()
     elif topic.startswith("sensors/audio"):
         save_audio_file(topic, data, timestamp)
     elif topic == "telegram/command":
@@ -83,9 +83,8 @@ def handle_motion():
         cv2.imshow("At your door", output_image)
         
         if cv2.waitKey(1) & 0xFF == ord("q"):
-            cv2.destroyWindow("At your door")
             break
-    
+    cv2.destroyWindow("At your door")
     print(labels)
     if "person" in labels:
         client.publish("detection/camera", "Person detected")
