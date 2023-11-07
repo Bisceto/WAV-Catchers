@@ -5,6 +5,7 @@
 #include <FS.h>
 #include "I2S.h"
 #include "LCD.h"
+#include "PIR.h"
 
 #include <WiFi.h>
 #include "CustomESP32MQTTClient.h"
@@ -42,6 +43,9 @@ void setup()
 
   // Initialise LCD
   init_lcd();
+
+  // Initialise PIR
+  init_pir();
 
   // Setup MQTT
   log_i();
@@ -160,6 +164,12 @@ void record_and_transmit_audio(void *param)
 }
 
 void loop() {
+  
+  if (is_motion_detected())
+  {
+    printLCD("Motion Detected!");
+  }
+
 }
 
 

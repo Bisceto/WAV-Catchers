@@ -1,7 +1,3 @@
-// Modified from https://github.com/MhageGH/esp32_SoundRecorder/tree/master
-// by MhageGH
-
-
 #include <LiquidCrystal_I2C.h>
 #include <mutex>
 
