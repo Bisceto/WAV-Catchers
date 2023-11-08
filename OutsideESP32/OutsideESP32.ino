@@ -11,19 +11,33 @@
 #include "CustomESP32MQTTClient.h"
 #include "esp_wpa2.h" //wpa2 library for connections to Enterprise networks
 
-#define WIFI_TIMEOUT 10 // Seconds
-#define MQTT_TIMEOUT 10 // Seconds
+// State Machine
+enum state{IDLE, RECORDING, AWAITING_RECORDING_RESULTS};
+volatile enum state current_state = IDLE;
+
+// LCD
+extern bool waiting_to_clear_display;
+
+// Push Button , LED
+#define LED_PIN 25 // LED Pin
+#define PB_PIN 4  // PushButton Pin
+#define TDELAY 1000
+volatile bool pressed = false;
+volatile unsigned long pressedtime = 0;
 
 // MQTT Settings
 
-#define NUS_NET_IDENTITY "nusstu\<nusnet-ID>"  //ie nusstu\e0123456
-#define NUS_NET_USERNAME "<nusnet-ID>"
-#define NUS_NET_PASSWORD "<nusnet-password>"
+#define WIFI_TIMEOUT 10 // Seconds
+#define MQTT_TIMEOUT 10 // Seconds
+
+#define NUS_NET_IDENTITY "nusstu\<nusnet_id>"  //ie nusstu\e0123456
+#define NUS_NET_USERNAME "<nusnet_id>"
+#define NUS_NET_PASSWORD "<password>"
 
 const char *ssid = "NUS_STU";
 const char *pass = "wav_catchers";
 
-char *server = "mqtt://172.31.123.112:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
+char *server = "mqtt://172.31.123.169:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
 
 // publishing topics
 char *startRecordingTopic = "sensors/microphone/recording_started";     // Published when recording is started
@@ -36,10 +50,25 @@ char *lcdDisplayTopic = "actuators/lcd/display_message";                // Subsc
 ESP32MQTTClient mqttClient; // all params are set later
 
 
+void IRAM_ATTR on_button_pressed() 
+{
+  // Only trigger a PB press after recording is done
+  if (millis() - pressedtime > RECORD_TIME * 1000 + 2000){
+    pressedtime = millis();
+    pressed = true;
+  }
+}
+
+
 void setup() 
 {
   // Initialise Serial Output
   Serial.begin(115200);
+
+  // Initalise LED and push button
+  pinMode(PB_PIN, INPUT_PULLUP);
+  pinMode(LED_PIN, OUTPUT);
+  attachInterrupt(PB_PIN, on_button_pressed, FALLING);
 
   // Initialise LCD
   init_lcd();
@@ -94,9 +123,6 @@ void setup()
 
   delay(2000); // DO NOT REMOVE, DOES NOT RECORD PROPERLY WIHTOUT THIS
 
-  // Begin Recording
-  xTaskCreatePinnedToCore(record_and_transmit_audio, "record_and_transmit_audio", 4096, NULL, 1, NULL, 1);
-  
 }
 
 
@@ -159,17 +185,48 @@ void record_and_transmit_audio(void *param)
   free(read_buffer);
   free(write_buffer);
 
+  // return to IDLE state
+  current_state = AWAITING_RECORDING_RESULTS;
+
   // end task
   vTaskDelete(NULL);
 }
 
 void loop() {
-  
-  if (is_motion_detected())
+
+  // Update LCD
+  if (waiting_to_clear_display) 
   {
-    printLCD("Motion Detected!");
+    clear_lcd();
+    waiting_to_clear_display = false;
   }
 
+  // FSM
+  if (current_state == IDLE)
+  {
+    // PIR
+    if (is_motion_detected())
+    {
+      printLCD("Motion Detected!");
+    }
+
+    // Pushbutton
+    if (pressed) { 
+      current_state = RECORDING;
+      xTaskCreate(toggleLED, "Toggle LED", 1024, NULL, 1, NULL);
+      xTaskCreatePinnedToCore(record_and_transmit_audio, "record_and_transmit_audio", 4096, NULL, 1, NULL, 1);
+      pressed = false;
+    }
+    delay(10);
+  }
+
+}
+
+void toggleLED(void * arg){
+  digitalWrite(LED_PIN, HIGH);
+  vTaskDelay(RECORD_TIME * 1000); // LED lights up for recording time
+  digitalWrite(LED_PIN, LOW);
+  vTaskDelete(NULL);
 }
 
 
@@ -178,7 +235,10 @@ void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
     if (mqttClient.isMyTurn(client)) // can be omitted if only one client
     {
         mqttClient.subscribe(lcdDisplayTopic, [](const String &payload)
-                             { printLCD(payload.c_str()); });
+                             { 
+                              printLCD(payload.c_str());
+                              current_state = IDLE;
+                             });
 
         mqttClient.subscribe("bar/#", [](const String &topic, const String &payload)
                              { log_i("%s: %s", topic, payload.c_str()); });
