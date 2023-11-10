@@ -46,8 +46,8 @@ char *endRecordingTopic = "sensors/microphone/recording_finished";      // Publi
 
 // subscribe topics
 char *lcdDisplayTopic = "actuators/lcd/display_message";                // Subscribe for when server request to display a message on LCD
-char *wrongPasswordAttempt = "actuators/lcd/wrong_password_attempt";
-char *correctPasswordAttempt = "actuators/lcd/correct_password_attempt";
+char *wrongPasswordAttempt = "outside_board/wrong_password_attempt";
+char *correctPasswordAttempt = "outside_board/correct_password_attempt";
 char *resetAttempts = "outside_board/reset_attempts";
 
 ESP32MQTTClient mqttClient; // all params are set later
