@@ -34,6 +34,7 @@ void init_lcd()
 
 void start_clear_timer()
 {
+  waiting_to_clear_display = false;
   timerAlarmWrite(clear_timer, 15000000, true);
   timerAlarmEnable(clear_timer);
 }
@@ -73,7 +74,7 @@ void printLCD(const char *message)
   xSemaphoreGive(lcd_semaphore);
 }
 
-void clear_lcd()
+void disable_lcd()
 {
   // take control of display
   xSemaphoreTake(lcd_semaphore, portMAX_DELAY);

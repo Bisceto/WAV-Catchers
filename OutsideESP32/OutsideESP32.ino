@@ -12,7 +12,7 @@
 #include "esp_wpa2.h" //wpa2 library for connections to Enterprise networks
 
 // State Machine
-enum state{IDLE, RECORDING, AWAITING_RECORDING_RESULTS};
+enum state{IDLE, RECORDING, AWAITING_RECORDING_RESULTS, LOCKOUT};
 volatile enum state current_state = IDLE;
 
 // LCD
@@ -30,14 +30,14 @@ volatile unsigned long pressedtime = 0;
 #define WIFI_TIMEOUT 10 // Seconds
 #define MQTT_TIMEOUT 10 // Seconds
 
-#define NUS_NET_IDENTITY "nusstu\<nusnet_id>"  //ie nusstu\e0123456
-#define NUS_NET_USERNAME "<nusnet_id>"
-#define NUS_NET_PASSWORD "<password>"
+#define NUS_NET_IDENTITY "nusstu\<nusnet id>"  //ie nusstu\e0123456
+#define NUS_NET_USERNAME "<nusnet id>"
+#define NUS_NET_PASSWORD "<nusnet password>"
 
 const char *ssid = "NUS_STU";
 const char *pass = "wav_catchers";
 
-char *server = "mqtt://172.31.123.169:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
+char *server = "mqtt://172.31.120.177:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
 
 // publishing topics
 char *startRecordingTopic = "sensors/microphone/recording_started";     // Published when recording is started
@@ -46,6 +46,9 @@ char *endRecordingTopic = "sensors/microphone/recording_finished";      // Publi
 
 // subscribe topics
 char *lcdDisplayTopic = "actuators/lcd/display_message";                // Subscribe for when server request to display a message on LCD
+char *wrongPasswordAttempt = "actuators/lcd/wrong_password_attempt";
+char *correctPasswordAttempt = "actuators/lcd/correct_password_attempt";
+char *resetAttempts = "outside_board/reset_attempts";
 
 ESP32MQTTClient mqttClient; // all params are set later
 
@@ -194,32 +197,65 @@ void record_and_transmit_audio(void *param)
 
 void loop() {
 
-  // Update LCD
-  if (waiting_to_clear_display) 
-  {
-    clear_lcd();
-    waiting_to_clear_display = false;
-  }
-
   // FSM
-  if (current_state == IDLE)
+  switch (current_state)
   {
-    // PIR
-    if (is_motion_detected())
-    {
-      printLCD("Motion Detected!");
-    }
+    case IDLE:
+      
+      // Turn off LCD (ONLY when in idle / lockout state)
+      if (waiting_to_clear_display) 
+      {
+        disable_lcd();
+        waiting_to_clear_display = false;
+      }
 
-    // Pushbutton
-    if (pressed) { 
-      current_state = RECORDING;
-      xTaskCreate(toggleLED, "Toggle LED", 1024, NULL, 1, NULL);
-      xTaskCreatePinnedToCore(record_and_transmit_audio, "record_and_transmit_audio", 4096, NULL, 1, NULL, 1);
-      pressed = false;
-    }
-    delay(10);
+      // PIR
+      if (is_motion_detected())
+      {
+        printLCD("Press button to\nrecord password");
+      }
+
+      // Pushbutton
+      if (pressed) { 
+        current_state = RECORDING;
+        xTaskCreate(toggleLED, "Toggle LED", 1024, NULL, 1, NULL);
+        xTaskCreatePinnedToCore(record_and_transmit_audio, "record_and_transmit_audio", 4096, NULL, 1, NULL, 1);
+        pressed = false;
+      }
+      delay(10);
+      break;
+    
+    case RECORDING:
+
+      break;
+
+    case AWAITING_RECORDING_RESULTS:
+
+      break;
+    
+    case LOCKOUT:
+      
+      // Turn off LCD (ONLY when in idle / lockout state)
+      if (waiting_to_clear_display) 
+      {
+        disable_lcd();
+        waiting_to_clear_display = false;
+      }
+
+      // PIR
+      if (is_motion_detected())
+      {
+        printLCD("Incorrect passwords\nIn Lockout");
+      }
+
+      // Pushbutton
+      if (pressed) { 
+        printLCD("No attempts\nremaining!");
+        pressed = false;
+      }
+      delay(10);
+      break;
   }
-
 }
 
 void toggleLED(void * arg){
@@ -237,8 +273,39 @@ void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
         mqttClient.subscribe(lcdDisplayTopic, [](const String &payload)
                              { 
                               printLCD(payload.c_str());
+                             }
+                             );
+        
+        mqttClient.subscribe(correctPasswordAttempt, [](const String &payload)
+                            {
+                              printLCD("Correct Password\nWelcome");
                               current_state = IDLE;
-                             });
+                            }
+                            );
+        
+        mqttClient.subscribe(wrongPasswordAttempt, [](const String &payload)
+                            {
+                              if (payload.toInt() <= 0) 
+                              {
+                                String str = "Wrong Password\nEntering Lockout";
+                                printLCD(str.c_str());
+                                current_state = LOCKOUT;
+                              } 
+                              else 
+                              {
+                                String str = "Wrong Password\n" + payload + " attempts left";
+                                printLCD(str.c_str());
+                                current_state = IDLE;
+                              }
+                            }
+                            );
+        
+        mqttClient.subscribe(resetAttempts, [](const String &payload)
+                            {
+                              printLCD("Attempts Reset!");
+                              current_state = IDLE;
+                            }
+                            );
 
         mqttClient.subscribe("bar/#", [](const String &topic, const String &payload)
                              { log_i("%s: %s", topic, payload.c_str()); });

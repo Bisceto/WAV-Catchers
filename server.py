@@ -7,7 +7,7 @@ from time import *
 #import numpy as np
 
 password_audio_filename : str = 'recording.wav'
-attempts_left : int = 3
+attempts_left : int = 2
 client = mqtt.Client()
 
 def on_connect(client, userdata, flags, rc):
@@ -16,6 +16,8 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe("telegram/#")
 
 def on_message(client, userdata, message):
+    global attempts_left
+
     topic = message.topic
     data = message.payload
     timestamp = time()
@@ -32,7 +34,8 @@ def on_message(client, userdata, message):
     elif topic.startswith("sensors/microphone/recording_finished"):
         #is_microphone_recording = False
         print("Microphone recording finished")
-        client.publish("actuators/lcd/display_message", "Wrong Password!\n" + str(attempts_left) + " attempts left")
+        attempts_left = max(attempts left - 1, 0)
+        client.publish("actuators/lcd/wrong_password_attempt", str(attempts_left))
     elif topic.startswith("sensors/microphone/recording_started"):
         #is_microphone_recording = True
         clear_recording()
