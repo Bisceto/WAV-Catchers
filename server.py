@@ -1,10 +1,10 @@
-#import cv2
-#import cvlib as cv
-#from cvlib.object_detection import draw_bbox
+import cv2
+import cvlib as cv
+from cvlib.object_detection import draw_bbox
 import paho.mqtt.client as mqtt
 from time import *
-#import urllib.request
-#import numpy as np
+import urllib.request
+import numpy as np
 
 password_audio_filename : str = 'recording.wav'
 attempts_left : int = 2
