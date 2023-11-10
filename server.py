@@ -35,7 +35,7 @@ def on_message(client, userdata, message):
         #is_microphone_recording = False
         print("Microphone recording finished")
         attempts_left = max(attempts left - 1, 0)
-        client.publish("actuators/lcd/wrong_password_attempt", str(attempts_left))
+        client.publish("outside_board/wrong_password_attempt", str(attempts_left))
     elif topic.startswith("sensors/microphone/recording_started"):
         #is_microphone_recording = True
         clear_recording()
