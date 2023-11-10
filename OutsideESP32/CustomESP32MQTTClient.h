@@ -75,7 +75,8 @@ public:
     void setAutoReconnect(bool choice);
     bool setMaxOutPacketSize(const uint16_t size);
     bool setMaxPacketSize(const uint16_t size); // override the default value of 1024
-    bool publish(char *topic, char *payload, int payload_length, int qos = 0, bool retain = false);
+    bool publish(const String &topic, const String &payload, int qos = 0, bool retain = false);
+    bool publishFixedLength(char *topic, char *payload, int payload_length, int qos = 0, bool retain = false); // Custom Function
     bool subscribe(const String &topic, MessageReceivedCallback messageReceivedCallback, uint8_t qos = 0);
     bool subscribe(const String &topic, MessageReceivedCallbackWithTopic messageReceivedCallback, uint8_t qos = 0);
     bool unsubscribe(const String &topic);                                       // Unsubscribes from the topic, if it exists, and removes it from the CallbackList.
