@@ -13,6 +13,7 @@ import librosa.display
 import matplotlib.pyplot as plt
 import os
 from time import *
+from datetime import date,datetime
 
 import torch
 from torch import nn
@@ -27,9 +28,14 @@ import paho.mqtt.client as mqtt
 
 MIN_AUDIO_LEN = 0.6 # for splicing audio into 4 parts, minimum audio length of each splice is 600ms
 MIN_THRESH = -30    # for splicing into 4 parts, amplitude the algorithm considers as silence
+PASSWORD = 5678
+START_FILE = True   # To create new audiofile for new recording attempt
+NUM_DIGITS = 4      # Digits of password
 device = 'cpu'
 # esp32_ip = '192.168.39.161' # esp32 ip address
 password_audio_filename : str = 'recording.wav'
+audio_filepath = ''
+current_dir = os.getcwd()   # get current working directory
 
 # helper functions
 
@@ -68,8 +74,8 @@ def pad(sample, desired_length=16000):
 
 # Possible bug: Somehow, if we load torch first the kernel dies due to lack of ram
 # Solved for now
-test = 'recording.wav'
-spec = wav2melSpec(test)
+#test = 'recording.wav'
+#spec = wav2melSpec(test)
 print("Librosa initialization ok")
 
 model_id = "facebook/hubert-large-ls960-ft"
@@ -147,7 +153,7 @@ def audio_len_check(audio_chunks):
             return False
     return True
 
-def splice_4parts(filename):
+def splice_parts(filename):
     sound_file = AudioSegment.from_wav(filename)
     chunks = 0
     silence_len = 200
@@ -176,22 +182,22 @@ def splice_4parts(filename):
         chunks = len(audio_chunks)
         threshold -= 1
         print(silence_len,threshold)
-        if chunks == 4 and audio_len_check(audio_chunks):
+        if chunks == NUM_DIGITS and audio_len_check(audio_chunks):
             break
-        
     
     # output 4 wav files for classification
     for i, chunk in enumerate(audio_chunks):
-
         out_file = f"output_{i}.wav"
+        output_dir = os.path.join(current_dir,'recordings','temporary_files',out_file)
         print ("exporting", out_file)
-        chunk.export(out_file, format="wav")
+        chunk.export(output_dir, format="wav")
     return clear
 
 def make_predictions_all():
     test_samples = []
-    for i in range(0,4):
+    for i in range(0,NUM_DIGITS):
         sample_path =  f'output_{i}.wav'
+        sample_path = os.path.join(current_dir,'recordings','temporary_files',sample_path)
         print(f'Adding {sample_path} to test sample')
         sample, sample_rate = load_audio(sample_path)
         if sample_rate != 16000:
@@ -209,8 +215,8 @@ def make_predictions_all():
 def clear_recording():
     open(password_audio_filename, 'w').close()
 
-def save_audio_snippet(message_payload : str):
-    f = open(password_audio_filename, 'ab')
+def save_audio_snippet(message_payload : str,audio_filepath):
+    f = open(audio_filepath, 'ab')
     f.write(message_payload)
     f.close()
 
@@ -221,27 +227,43 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe("telegram/#")
 
 def on_message(client, userdata, message):
+    global START_FILE
+    global audio_filepath
     topic = message.topic
     data = message.payload
     timestamp = time()
     if topic.startswith("sensors/microphone/snippet"):
-        save_audio_snippet(message.payload)
+        now = datetime.now()
+        # dd/mm/YY H:M:S
+        if START_FILE:
+            dt_string = now.strftime("%d-%m-%Y_%HH%MM%SS")
+            recording_filename_datetime = 'recording-' + dt_string + '.wav'
+            audio_filepath = os.path.join(current_dir,'recordings',recording_filename_datetime)
+            START_FILE = False
+
+        save_audio_snippet(message.payload,audio_filepath)
         print("Audio message received of length", len(message.payload))
     elif topic.startswith("sensors/microphone/recording_finished"):
         #is_microphone_recording = False
+        START_FILE = True
         print("Microphone recording finished, Starting Audio classification")
-        success = splice_4parts(password_audio_filename)
+        success = splice_parts(audio_filepath)
         if success:
             preds = make_predictions_all()
+            strpreds = [str(i) for i in preds]
+            if ''.join(strpreds) == str(PASSWORD):  # Correct password
+                client.publish("actuators/lcd/display_message", "Welcome home")
+            else:
+                client.publish("actuators/lcd/display_message", "Wrong Password!\n" + '-'.join(strpreds))
             print(preds)
         else:
             print("Unclear audio, try again")
-        
+            client.publish("actuators/lcd/display_message", "Unclear Audio\nTry again!")
         # implement some counter so that once 3rd try fails -> do somthing
             
         # Test LCD
-        example_incorrect_password = "0-1-2-3"
-        client.publish("actuators/lcd/display_message", "Wrong Password!\n" + example_incorrect_password)
+        
+        
         
     elif topic.startswith("sensors/microphone/recording_started"):
         #is_microphone_recording = True
