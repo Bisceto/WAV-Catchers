@@ -26,6 +26,9 @@ from pydub.silence import split_on_silence
 
 import paho.mqtt.client as mqtt
 
+from telegram import Bot
+import requests
+
 password_audio_filename : str = 'recording.wav'
 attempts_left : int = 2
 client = mqtt.Client()
@@ -36,6 +39,9 @@ PASSWORD = 5678
 START_FILE = True   # To create new audiofile for new recording attempt
 NUM_DIGITS = 4      # Digits of password
 device = 'cpu'
+BOT_TOKEN = "6635330110:AAHd34EJKJ4BG_y0_jAt4C5gkE6qSH44j2I"
+CHAT_ID = "1775195171"
+bot = Bot(token=BOT_TOKEN)
 # esp32_ip = '192.168.39.161' # esp32 ip address
 password_audio_filename : str = 'recording.wav'
 audio_filepath = ''
@@ -48,6 +54,9 @@ def wav2melSpec(AUDIO_PATH):
     audio, sr = librosa.load(AUDIO_PATH)
     return librosa.feature.melspectrogram(y=audio, sr=sr)
 
+
+
+
 #plot spectrogram
 def imgSpec(ms_feature):
     fig, ax = plt.subplots()
@@ -55,7 +64,7 @@ def imgSpec(ms_feature):
     print(ms_feature.shape)
     img = librosa.display.specshow(ms_dB, x_axis='time', y_axis='mel', ax=ax)
     fig.colorbar(img, ax=ax, format='%+2.0f dB')
-    ax.set(title='Mel-frequency spectrogram');
+    ax.set(title='Mel-frequency spectrogram')
 
 # load wav file and return np array and sampling rate
 def load_audio(AUDIO_PATH):
@@ -230,6 +239,7 @@ def on_message(client, userdata, message):
     timestamp = time()
     
     if topic.startswith("sensors/motion"):
+        print("PIR Sensor Motion")
         handle_motion()
     elif topic.startswith("sensors/audio"):
         save_audio_file(topic, data, timestamp)
@@ -278,6 +288,9 @@ def on_message(client, userdata, message):
         if attempts_left == 0:
             print("No attempts left")
             client.publish("outside_board/wrong_password_attempt","1")  # 1 signifies no attemps left
+            send_to_Tele(latestimg)
+        
+
 
     elif topic.startswith("sensors/microphone/recording_started"):
         #is_microphone_recording = True
@@ -303,22 +316,28 @@ def save_audio_file(topic, data, timestamp):
 def handle_telegram_command(client, command):
     global attempts_left
     if command == "unlock":
+        print("Unlocking door")
         client.publish("arduino/command", "unlock")
     elif command == "lock":
+        print("Locking door")
         client.publish("arduino/command", "lock")
     elif command == 'reset':
         print('Resetting attempts')
         attempts_left = 3
 
 def handle_motion():
-    url = 'http://172.20.10.6/cam-hi.jpg'
+    global latestimg
+    url = 'http://192.168.39.219/cam-hi.jpg' 
     labels = []
     for i in range(10): #10 frames
+        print("Generating frames")
         img_resp=urllib.request.urlopen(url)
         imgnp=np.array(bytearray(img_resp.read()),dtype=np.uint8)
         im = cv2.imdecode(imgnp,-1)
         bbox, label, conf = cv.detect_common_objects(im, model="yolov3")
         output_image = draw_bbox(im, bbox, label, conf)
+        if "person" in label:
+            latestimg = im
         
         for item in label:
             if item in labels:
@@ -329,11 +348,25 @@ def handle_motion():
         cv2.imshow("At your door", output_image)
         
         if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+              break
     cv2.destroyWindow("At your door")
     print(labels)
     if "person" in labels:
         client.publish("detection/camera", "Person detected")
+
+def send_to_Tele(latest_img):
+    _, img_encoded = cv2.imencode('.jpg', latest_img)
+    image_bytes = img_encoded.tobytes()
+    response = requests.post(
+    f'https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto',
+    data={'chat_id': CHAT_ID},
+    files={'photo': ('image.jpg', image_bytes, 'multipart/form-data')})
+
+    if response.status_code == 200:
+        print('Image sent successfully')
+    else:
+        print(f'Failed to send image. Status code: {response.status_code}')
+
 
 client.on_connect = on_connect
 client.on_message = on_message
