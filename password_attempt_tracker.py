@@ -7,6 +7,8 @@ from time import *
 from apiclient import discovery
 from google.oauth2 import service_account
 
+# google sheet at https://docs.google.com/spreadsheets/d/1_ElKGJXLOFyxICCdZMTgvFqbVZvfdv0FLZt6K-dbgU8/edit#gid=0
+
 def add_password_attempt(): 
     scopes = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
     secret_file = os.path.join(os.getcwd(), 'service_bot_credentials.json')
