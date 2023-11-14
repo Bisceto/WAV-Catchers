@@ -4,6 +4,11 @@ int pir_state = LOW;
 
 void IRAM_ATTR on_pir_motion_detected()
 {
+  if (millis() - movedtime >  10000){   // if moved, delay of 10s 
+    movedtime = millis();
+    String msg_moved
+    mqttClient.publish(pirmotion, msg_moved, 0, false);
+  }
   
 }
 

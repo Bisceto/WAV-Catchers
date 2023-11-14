@@ -253,6 +253,7 @@ def on_message(client, userdata, message):
             strpreds = [str(i) for i in preds]
             if ''.join(strpreds) == str(PASSWORD):  # Correct password
                 client.publish("actuators/lcd/display_message", "Welcome home")
+                client.publish("")
             else:
                 client.publish("actuators/lcd/display_message", "Wrong Password!\n" + '-'.join(strpreds))
             print(preds)

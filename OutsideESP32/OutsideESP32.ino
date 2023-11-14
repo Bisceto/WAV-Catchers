@@ -48,12 +48,14 @@ char *server = "mqtt://192.168.39.243:1883"; // "mqtt://<IP Addr of MQTT BROKER>
 char *startRecordingTopic = "sensors/microphone/recording_started";     // Published when recording is started
 char *addAudioSnippetTopic = "sensors/microphone/snippet";              // Published with byte array of audio data while recording
 char *endRecordingTopic = "sensors/microphone/recording_finished";      // Published when recording has ended
+char *pirmotion = "sensors/motion"                                      // Published when PIR sensor triggers (sensitive)
 
 // subscribe topics
 char *lcdDisplayTopic = "actuators/lcd/display_message";                // Subscribe for when server request to display a message on LCD
 char *wrongPasswordAttempt = "actuators/lcd/wrong_password_attempt";
 char *correctPasswordAttempt = "actuators/lcd/correct_password_attempt";
 char *resetAttempts = "outside_board/reset_attempts";
+
 
 ESP32MQTTClient mqttClient; // all params are set later
 
@@ -250,7 +252,7 @@ void loop() {
       // PIR
       if (is_motion_detected())
       {
-        printLCD("Incorrect passwords\nIn Lockout");
+        printLCD("Wrong passwords\nIn Lockout");
       }
 
       // Pushbutton
