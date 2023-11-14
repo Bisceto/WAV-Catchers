@@ -6,9 +6,13 @@ from time import *
 import urllib.request
 import numpy as np
 
+import password_attempt_tracker as pat
+
 password_audio_filename : str = 'recording.wav'
 attempts_left : int = 2
 client = mqtt.Client()
+
+pat.reset() # Upon server initialisation, reset attempt logs
 
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code: " + str(rc))
@@ -38,6 +42,7 @@ def on_message(client, userdata, message):
         client.publish("outside_board/wrong_password_attempt", str(attempts_left))
     elif topic.startswith("sensors/microphone/recording_started"):
         #is_microphone_recording = True
+        pat.add_password_attempt() # Log password attempt in google sheet
         clear_recording()
         print("Microphone has started recording")
 
