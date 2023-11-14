@@ -37,7 +37,9 @@ volatile unsigned long pressedtime = 0;
 const char *ssid = "NUS_STU";
 const char *pass = "wav_catchers";
 
-char *server = "mqtt://172.31.120.177:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
+char *server = "mqtt://172.25.108.43:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
+
+volatile int mqtt_timeout_counter = 0;
 
 // publishing topics
 char *startRecordingTopic = "sensors/microphone/recording_started";     // Published when recording is started
@@ -184,6 +186,8 @@ void record_and_transmit_audio(void *param)
   Serial.println(" *** Recording Finished *** ");
   printLCD("Please wait...");
 
+  mqtt_timeout_counter = 0; // Reset counter
+
   // free memory
   free(read_buffer);
   free(write_buffer);
@@ -231,6 +235,16 @@ void loop() {
 
     case AWAITING_RECORDING_RESULTS:
 
+      // Check for MQTT Timeout
+      delay(MQTT_TIMEOUT * 100);
+
+      if (mqtt_timeout_counter++ > MQTT_TIMEOUT) 
+      {
+        // Exit state if MQTT timeout
+        printLCD("MQTT Timeout!\nPlease try again");
+        current_state = IDLE;
+        delay(5000);
+      }
       break;
     
     case LOCKOUT:
@@ -245,7 +259,7 @@ void loop() {
       // PIR
       if (is_motion_detected())
       {
-        printLCD("Incorrect passwords\nIn Lockout");
+        printLCD("No entry\nIn Lockout");
       }
 
       // Pushbutton
@@ -278,24 +292,30 @@ void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
         
         mqttClient.subscribe(correctPasswordAttempt, [](const String &payload)
                             {
-                              printLCD("Correct Password\nWelcome");
-                              current_state = IDLE;
+                              if (current_state == AWAITING_RECORDING_RESULTS)
+                              {
+                                printLCD("Correct Password\nWelcome");
+                                current_state = IDLE;
+                              }
                             }
                             );
         
         mqttClient.subscribe(wrongPasswordAttempt, [](const String &payload)
                             {
-                              if (payload.toInt() <= 0) 
+                              if (current_state == AWAITING_RECORDING_RESULTS)
                               {
-                                String str = "Wrong Password\nEntering Lockout";
-                                printLCD(str.c_str());
-                                current_state = LOCKOUT;
-                              } 
-                              else 
-                              {
-                                String str = "Wrong Password\n" + payload + " attempts left";
-                                printLCD(str.c_str());
-                                current_state = IDLE;
+                                if (payload.toInt() <= 0) 
+                                {
+                                  String str = "Wrong Password\nEntering Lockout";
+                                  printLCD(str.c_str());
+                                  current_state = LOCKOUT;
+                                } 
+                                else 
+                                {
+                                  String str = "Wrong Password\n" + payload + " attempts left";
+                                  printLCD(str.c_str());
+                                  current_state = IDLE;
+                                }
                               }
                             }
                             );

@@ -34,7 +34,7 @@ def on_message(client, userdata, message):
     elif topic.startswith("sensors/microphone/recording_finished"):
         #is_microphone_recording = False
         print("Microphone recording finished")
-        attempts_left = max(attempts left - 1, 0)
+        attempts_left = max(attempts_left - 1, 0)
         client.publish("outside_board/wrong_password_attempt", str(attempts_left))
     elif topic.startswith("sensors/microphone/recording_started"):
         #is_microphone_recording = True
