@@ -195,15 +195,17 @@ def splice_parts(filename):
         chunks = len(audio_chunks)
         threshold -= 1
         print(silence_len,threshold)
+        # If satisfy conditions ( x split files each of minimum audio length - splicing is successful)
         if chunks == NUM_DIGITS and audio_len_check(audio_chunks):
             break
     
     # output 4 wav files for classification
-    for i, chunk in enumerate(audio_chunks):
-        out_file = f"output_{i}.wav"
-        output_dir = os.path.join(current_dir,'recordings','temporary_files',out_file)
-        print ("exporting", out_file)
-        chunk.export(output_dir, format="wav")
+    if clear:
+        for i, chunk in enumerate(audio_chunks):
+            out_file = f"output_{i}.wav"
+            output_dir = os.path.join(current_dir,'recordings','temporary_files',out_file)
+            print ("exporting", out_file)
+            chunk.export(output_dir, format="wav")
     return clear
 
 def make_predictions_all():
@@ -243,11 +245,6 @@ def on_message(client, userdata, message):
         handle_motion()
     elif topic.startswith("sensors/audio"):
         save_audio_file(topic, data, timestamp)
-    # elif topic == "outside_board/reset_attempts":
-    #     print(data)
-    #     if data == '1':
-    #         print('Resetting attempts')
-    #         attempts_left = 3
     elif topic == "telegram/command":
         handle_telegram_command(client, data.decode())
     elif topic.startswith("sensors/microphone/snippet"):
@@ -277,6 +274,7 @@ def on_message(client, userdata, message):
             else:                                   # Wrong password
                 client.publish("actuators/lcd/display_message", "Wrong Password!\n" + '-'.join(strpreds))
                 attempts_left = max(attempts_left - 1, 0)
+                print("Wrong classification and password!")
                 print(f"Attemps left: {attempts_left}")
                 client.publish("actuators/lcd/wrong_password_attempt", str(attempts_left))
             print(preds)
@@ -287,7 +285,7 @@ def on_message(client, userdata, message):
             client.publish("actuators/lcd/wrong_password_attempt", str(attempts_left))
         if attempts_left == 0:
             print("No attempts left")
-            client.publish("outside_board/wrong_password_attempt","1")  # 1 signifies no attemps left
+            client.publish("outside_board/wrong_password_attempt","1")  # 1 signifies no attemps left, lock the 
             send_to_Tele(latestimg)
         
 
@@ -323,11 +321,12 @@ def handle_telegram_command(client, command):
         client.publish("arduino/command", "lock")
     elif command == 'reset':
         print('Resetting attempts')
+        client.publish("outside_board/outside_board/reset_attempts","Reset")
         attempts_left = 3
 
 def handle_motion():
     global latestimg
-    url = 'http://192.168.39.219/cam-hi.jpg' 
+    url = 'http://192.168.39.113/cam-hi.jpg' 
     labels = []
     for i in range(10): #10 frames
         print("Generating frames")
@@ -367,7 +366,7 @@ def send_to_Tele(latest_img):
     else:
         print(f'Failed to send image. Status code: {response.status_code}')
 
-
+handle_motion()
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect("localhost", 1883, 60)
