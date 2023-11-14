@@ -34,15 +34,21 @@ volatile unsigned long pressedtime = 0;
 #define NUS_NET_USERNAME "<nusnet id>"
 #define NUS_NET_PASSWORD "<nusnet password>"
 
-const char *ssid = "NUS_STU";
-const char *pass = "wav_catchers";
+// const char *ssid = "NUS_STU";
+// const char *pass = "wav_catchers";
 
-char *server = "mqtt://172.31.120.177:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
+// char *server = "mqtt://172.31.120.177:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
+
+const char *ssid = "POCOF5";
+const char *pass = "qqqqqqqqq";
+
+char *server = "mqtt://192.168.39.243:1883"; // "mqtt://<IP Addr of MQTT BROKER>:<Port Number>"
 
 // publishing topics
 char *startRecordingTopic = "sensors/microphone/recording_started";     // Published when recording is started
 char *addAudioSnippetTopic = "sensors/microphone/snippet";              // Published with byte array of audio data while recording
 char *endRecordingTopic = "sensors/microphone/recording_finished";      // Published when recording has ended
+char *pirmotion = "sensors/motion"                                      // Published when PIR sensor triggers (sensitive)
 
 // subscribe topics
 char *lcdDisplayTopic = "actuators/lcd/display_message";                // Subscribe for when server request to display a message on LCD
@@ -50,12 +56,13 @@ char *wrongPasswordAttempt = "actuators/lcd/wrong_password_attempt";
 char *correctPasswordAttempt = "actuators/lcd/correct_password_attempt";
 char *resetAttempts = "outside_board/reset_attempts";
 
+
 ESP32MQTTClient mqttClient; // all params are set later
 
 
 void IRAM_ATTR on_button_pressed() 
 {
-  // Only trigger a PB press after recording is done
+  // Only trigger a PB press after recording is done (additional 2sec buffer)
   if (millis() - pressedtime > RECORD_TIME * 1000 + 2000){
     pressedtime = millis();
     pressed = true;
@@ -91,9 +98,9 @@ void setup()
 
   // Connect to WiFi delay(10);
   WiFi.disconnect(true);
-  WiFi.begin(ssid, WPA2_AUTH_PEAP, NUS_NET_IDENTITY, NUS_NET_USERNAME, NUS_NET_PASSWORD); // without CERTIFICATE you can comment out the test_root_ca on top. Seems like root CA is included?
+  // WiFi.begin(ssid, WPA2_AUTH_PEAP, NUS_NET_IDENTITY, NUS_NET_USERNAME, NUS_NET_PASSWORD); // without CERTIFICATE you can comment out the test_root_ca on top. Seems like root CA is included?
  
-  //WiFi.begin(ssid, pass);
+  WiFi.begin(ssid, pass);
   int timeout_counter = 0;
 
   Serial.println("Connecting...");
@@ -210,7 +217,7 @@ void loop() {
       }
 
       // PIR
-      if (is_motion_detected())
+      if (is_motion_detected()) // change to prompt from CAM
       {
         printLCD("Press button to\nrecord password");
       }
@@ -245,7 +252,7 @@ void loop() {
       // PIR
       if (is_motion_detected())
       {
-        printLCD("Incorrect passwords\nIn Lockout");
+        printLCD("Wrong passwords\nIn Lockout");
       }
 
       // Pushbutton
@@ -273,6 +280,7 @@ void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
         mqttClient.subscribe(lcdDisplayTopic, [](const String &payload)
                              { 
                               printLCD(payload.c_str());
+                              current_state = IDLE;
                              }
                              );
         

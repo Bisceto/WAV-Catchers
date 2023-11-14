@@ -1,3 +1,6 @@
+// Vcc - 5V
+// SDA - Pin 21
+// SCL - Pin 22
 #include <LiquidCrystal_I2C.h>
 #include <mutex>
 
