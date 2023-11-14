@@ -87,7 +87,7 @@ void setup()
   log_i("%s", ESP.getSdkVersion());
 
   mqttClient.enableDebuggingMessages();
-  mqttClient.setURI(server);
+  mqttClient.setURI(server, "outside", "outside"); // Assume password and username cannot be wrong
   mqttClient.enableLastWillMessage("lwt", "I am going offline");
   mqttClient.setKeepAlive(30);
 

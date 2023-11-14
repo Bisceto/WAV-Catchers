@@ -88,6 +88,8 @@ def handle_motion():
     if "person" in labels:
         client.publish("detection/camera", "Person detected")
 
+client.username_pw_set(username="server",password="server")
+
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect("localhost", 1883, 60)
