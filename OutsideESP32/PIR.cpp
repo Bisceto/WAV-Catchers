@@ -2,17 +2,6 @@
 
 int pir_state = LOW;
 
-void IRAM_ATTR on_pir_motion_detected()
-{
-  
-}
-
-void init_pir()
-{
-  pinMode(PIR_INPUT_PIN, INPUT_PULLUP);
-  attachInterrupt(PIR_INPUT_PIN, on_pir_motion_detected, RISING);
-}
-
 bool is_motion_detected()
 {
   int val = digitalRead(PIR_INPUT_PIN);
