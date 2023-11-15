@@ -4,10 +4,11 @@ from cvlib.object_detection import draw_bbox
 import paho.mqtt.client as mqtt
 from time import *
 import urllib.request
-import numpy as np
 
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+
+import password_attempt_tracker as pat
 
 import librosa
 import librosa.display
@@ -23,8 +24,6 @@ from transformers import HubertModel, Wav2Vec2FeatureExtractor
 
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
-
-import paho.mqtt.client as mqtt
 
 from telegram import Bot
 import requests
@@ -288,10 +287,9 @@ def on_message(client, userdata, message):
             client.publish("outside_board/wrong_password_attempt","1")  # 1 signifies no attemps left, lock the 
             send_to_Tele(latestimg)
         
-
-
     elif topic.startswith("sensors/microphone/recording_started"):
         #is_microphone_recording = True
+        pat.add_password_attempt() # Log password attempt in google sheet
         clear_recording()
         print("Microphone has started recording")
 
@@ -367,6 +365,11 @@ def send_to_Tele(latest_img):
         print(f'Failed to send image. Status code: {response.status_code}')
 
 handle_motion()
+
+# MQTT Authentication
+client.username_pw_set(username="server",password="server")
+
+# MQTT Client set up
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect("localhost", 1883, 60)
