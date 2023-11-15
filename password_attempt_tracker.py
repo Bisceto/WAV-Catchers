@@ -4,7 +4,7 @@ import sys
 
 from datetime import datetime
 from time import *
-from apiclient import discovery
+from googleapiclient import discovery
 from google.oauth2 import service_account
 
 # google sheet at https://docs.google.com/spreadsheets/d/1_ElKGJXLOFyxICCdZMTgvFqbVZvfdv0FLZt6K-dbgU8/edit#gid=0

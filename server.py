@@ -29,7 +29,7 @@ from telegram import Bot
 import requests
 
 password_audio_filename : str = 'recording.wav'
-attempts_left : int = 2
+attempts_left : int = 3
 client = mqtt.Client()
 
 MIN_AUDIO_LEN = 0.6 # for splicing audio into 4 parts, minimum audio length of each splice is 600ms
@@ -270,7 +270,10 @@ def on_message(client, userdata, message):
                 print('Correct Password')
                 client.publish("outside_board/correct_password_attempt", "Correct")
                 client.publish("actuators/lcd/correct_password_attempt", "Correct") # Hardcoded at ESP32 side
-            else:                                   # Wrong password
+                client.publish("actuators/PIR",1)
+                attempts_left = 3
+
+            else:                                   # Wrong passwordf
                 client.publish("actuators/lcd/display_message", "Wrong Password!\n" + '-'.join(strpreds))
                 attempts_left = max(attempts_left - 1, 0)
                 print("Wrong classification and password!")
@@ -286,14 +289,15 @@ def on_message(client, userdata, message):
             print("No attempts left")
             client.publish("outside_board/wrong_password_attempt","1")  # 1 signifies no attemps left, lock the 
             send_to_Tele(latestimg)
+            client.publish("actuators/PIR",1)
         
     elif topic.startswith("sensors/microphone/recording_started"):
         #is_microphone_recording = True
         pat.add_password_attempt() # Log password attempt in google sheet
         clear_recording()
         print("Microphone has started recording")
-
     print("Received message")
+    
 
 def clear_recording():
     open(password_audio_filename, 'w').close()
@@ -319,12 +323,12 @@ def handle_telegram_command(client, command):
         client.publish("arduino/command", "lock")
     elif command == 'reset':
         print('Resetting attempts')
-        client.publish("outside_board/outside_board/reset_attempts","Reset")
+        client.publish("actuators/reset_attempts","Reset")
         attempts_left = 3
 
 def handle_motion():
     global latestimg
-    url = 'http://192.168.39.113/cam-hi.jpg' 
+    url = 'http://172.20.10.5/cam-hi.jpg' 
     labels = []
     for i in range(10): #10 frames
         print("Generating frames")
@@ -349,7 +353,7 @@ def handle_motion():
     cv2.destroyWindow("At your door")
     print(labels)
     if "person" in labels:
-        client.publish("detection/camera", "Person detected")
+        client.publish("actuators/camera", "Person detected")
 
 def send_to_Tele(latest_img):
     _, img_encoded = cv2.imencode('.jpg', latest_img)
@@ -363,8 +367,7 @@ def send_to_Tele(latest_img):
         print('Image sent successfully')
     else:
         print(f'Failed to send image. Status code: {response.status_code}')
-
-handle_motion()
+# handle_motion()
 
 # MQTT Authentication
 client.username_pw_set(username="server",password="server")
