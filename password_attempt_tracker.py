@@ -30,7 +30,7 @@ def add_password_attempt():
     service.spreadsheets().values().update(spreadsheetId=spreadsheet_id, body=data, range=entry_number_range, valueInputOption='USER_ENTERED').execute()
     
     # Write new timestamps
-    values = [ [datetime.utcfromtimestamp(time()).strftime('%Y-%m-%d %H:%M:%S')] ]
+    values = [ [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] ]
     data = { 'values' : values }
     service.spreadsheets().values().update(spreadsheetId=spreadsheet_id, body=data, range=new_timestamp_range, valueInputOption='USER_ENTERED').execute()
 
