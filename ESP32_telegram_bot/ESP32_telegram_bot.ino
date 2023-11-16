@@ -10,10 +10,12 @@
 const char* ssid = "POCOF5";
 const char* password = "qqqqqqqqq";
 char *server = "mqtt://192.168.39.51:1883"; 
-char *subscribeTopic = "arduino/command";
-ESP32MQTTClient mqttClient; 
-int passcount = 0;
 
+char *subscribeTopic = "arduino/command";
+char *wrongpassword="outside_board/wrong_password_attempt";
+char *correctpassword="outside_board/correct_password_attempt";
+ESP32MQTTClient mqttClient; 
+int hold = 0;
 //mqttClient.publish("other parameters", String(event.temperature), 0, false);
 
 //Servo parameters
@@ -66,21 +68,22 @@ void handleNewMessages(int numNewMessages) {
     welcome += "Use the following commands to control your outputs.\n\n";
     welcome += "/unlock to unlock the door \n";
     welcome += "/lock to lock the door \n";
+    welcome += "/reset to reset password attempts \n";
     bot.sendMessage(chat_id, welcome, "");
     }
 
     if (text == "/unlock") {
     bot.sendMessage(chat_id, "Unlocking door", "");
-    // pwm.writeScaled(0.025);
+    mqttClient.publish("telegram/command", "unlock");
     }
 
     if (text == "/lock") {
     bot.sendMessage(chat_id, "Locking door", "");
-    // pwm.writeScaled(0.075);
+    mqttClient.publish("telegram/command", "lock");
     }
-    if (text == "/unlock" || text == "/lock") {
-      telegramMessage = text;
-      mqttClient.publish("telegram/command", text.c_str());
+    if (text == "/reset") {
+    bot.sendMessage(chat_id, "Resetting password attempts", "");
+    mqttClient.publish("telegram/command", "reset");
     }
   }
 }
@@ -123,35 +126,10 @@ void loop() {
     }
     lastTimeBotRan = millis();
   }
-}
-
-void handleClassificationResponse(const String &payload) {
-  if (bot.messages[0].chat_id) {
-    String chat_id = String(bot.messages[0].chat_id);
-  if(payload == "password correct" && passcount <=3) {
-    bot.sendMessage(chat_id, "People entered correct password, door opening", "");
-    pwm.writeScaled(0.025);
-    passcount = 0;
-  } else if(payload == "wrong password" && passcount <=3) {
-    bot.sendMessage(chat_id, "People entered incorrect password, door remained locked", "");
-    passcount++;
-  } else if(payload == "wrong password" && passcount >= 4) {
-    bot.sendMessage(chat_id, "too many attempt to open the door,door will remain locked for 3 min", "");
-    passcount++; 
-    sleepDevice();
-    }
+  if (hold == 1){
+    bot.sendMessage(CHAT_ID, "3 wrong attempts, door is locked", "");
+    hold = 0;
   }
-    if (payload == "unlock") {
-    pwm.writeScaled(0.025);
-  } else if (payload == "lock") {
-    pwm.writeScaled(0.075);
-  }
-}
-
-void sleepDevice() {
-  Serial.println("Going to sleep for " + String(TIME_TO_SLEEP) + " seconds...");
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
-  esp_deep_sleep_start();
 }
 
 void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
@@ -160,23 +138,27 @@ void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
     {    
         mqttClient.subscribe(subscribeTopic, [](const String &payload)
                              {Serial.println(String(subscribeTopic) + String(" ") + String(payload.c_str())) ; 
-                              handleClassificationResponse(payload);
+                              if (payload == "unlock"){
+                                pwm.writeScaled(0.025);
+                                }
+                              if (payload == "lock"){
+                                pwm.writeScaled(0.075);
+                              }
                              });
-
-        mqttClient.subscribe("telegram/command", [](const String &payload)
-                             {Serial.println(String("telegram/command ") + String(payload.c_str())); 
-                              handleTelegramCommand(payload);
+        mqttClient.subscribe(wrongpassword, [](const String &payload)
+                              {Serial.println(String() + String(" ") + String(payload.c_str())) ; 
+                              if (payload == "1"){
+                                pwm.writeScaled(0.075);
+                                hold = 1;
+                              }
                              });
-
-        mqttClient.subscribe("bar/#", [](const String &topic, const String &payload)
-                             {Serial.println(String(subscribeTopic)+String(" ")+String(payload.c_str())); });
+        mqttClient.subscribe(correctpassword, [](const String &payload)
+                              {Serial.println(String() + String(" ") + String(payload.c_str())) ; 
+                              if (payload == "Correct"){
+                                pwm.writeScaled(0.025);
+                              }
+                             });
     }
-}
-
-void handleTelegramCommand(const String &payload) {
-  if (payload == "/unlock" || payload == "/lock") {
-    handleClassificationResponse(payload);
-  }
 }
 
 esp_err_t handleMQTT(esp_mqtt_event_handle_t event)
