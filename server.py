@@ -328,7 +328,7 @@ def handle_telegram_command(client, command):
 
 def handle_motion():
     global latestimg
-    url = 'http://172.20.10.5/cam-hi.jpg' 
+    url = 'http://192.168.39.219/cam-hi.jpg' 
     labels = []
     for i in range(10): #10 frames
         print("Generating frames")

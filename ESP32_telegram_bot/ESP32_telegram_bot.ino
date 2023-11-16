@@ -7,9 +7,10 @@
 #include <ESP32Servo.h>
 
 //MQTT set up
-const char *ssid = "notyouriphone";
-const char *password = "hidejy123";
-char *server = "mqtt://172.20.10.6:1883"; 
+const char* ssid = "POCOF5";
+const char* password = "qqqqqqqqq";
+char *server = "mqtt://192.168.39.51:1883"; 
+
 char *subscribeTopic = "arduino/command";
 char *wrongpassword="outside_board/wrong_password_attempt";
 char *correctpassword="outside_board/correct_password_attempt";
