@@ -131,7 +131,7 @@ class HubertAudioModel(torch.nn.Module):
 
 def make_predictions(model, data, device=device):
     pred_probs = []
-    model.eval()
+    # model.eval()
     with torch.inference_mode():
         for sample in data:
             # Prepare the sample (add a batch dimension and pass to target device)
@@ -273,7 +273,7 @@ def on_message(client, userdata, message):
                 client.publish("actuators/PIR",1)
                 attempts_left = 3
 
-            else:                                   # Wrong passwordf
+            else:                                   # Wrong password
                 client.publish("actuators/lcd/display_message", "Wrong Password!\n" + '-'.join(strpreds))
                 attempts_left = max(attempts_left - 1, 0)
                 print("Wrong classification and password!")
@@ -313,8 +313,16 @@ def save_audio_file(topic, data, timestamp):
     with open(filepath, "wb") as audio_file:
         audio_file.write(data)
 
+def change_password():
+    global PASSWORD
+    PASSWORD = random.randint(1000, 9999)
+    print("--------")
+    print(f"New Password: {str(PASSWORD)}")
+    print("--------")
+
 def handle_telegram_command(client, command):
     global attempts_left
+    global PASSWORD
     if command == "unlock":
         print("Unlocking door")
         client.publish("arduino/command", "unlock")
@@ -325,6 +333,9 @@ def handle_telegram_command(client, command):
         print('Resetting attempts')
         client.publish("actuators/reset_attempts","Reset")
         attempts_left = 3
+    elif command == 'changepw':
+        change_password()
+        client.publish("arduino/command", str(PASSWORD))
 
 def handle_motion():
     global latestimg
@@ -354,6 +365,8 @@ def handle_motion():
     print(labels)
     if "person" in labels:
         client.publish("actuators/camera", "Person detected")
+    else:
+        client.publish("actuators/PIR",1)   # Allow PIR to activate esp32 cam again if person not detected
 
 def send_to_Tele(latest_img):
     _, img_encoded = cv2.imencode('.jpg', latest_img)
