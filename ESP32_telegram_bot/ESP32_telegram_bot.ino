@@ -85,6 +85,10 @@ void handleNewMessages(int numNewMessages) {
     bot.sendMessage(chat_id, "Resetting password attempts", "");
     mqttClient.publish("telegram/command", "reset");
     }
+    if (text == "/changepw") {
+    bot.sendMessage(chat_id, "Changing to a random password", "");
+    mqttClient.publish("telegram/command", "changepw");
+    }
   }
 }
 
@@ -141,8 +145,12 @@ void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
                               if (payload == "unlock"){
                                 pwm.writeScaled(0.025);
                                 }
-                              if (payload == "lock"){
+                              else if (payload == "lock"){
                                 pwm.writeScaled(0.075);
+                              }
+                              else {
+                                newpw_msg = String("New Password: ") +  String(payload.c_str());
+                                bot.sendMessage(chat_id, newpw_msg, "");
                               }
                              });
         mqttClient.subscribe(wrongpassword, [](const String &payload)
