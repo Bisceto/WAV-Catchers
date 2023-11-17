@@ -72,6 +72,7 @@ void handleNewMessages(int numNewMessages) {
     welcome += "/unlock to unlock the door \n";
     welcome += "/lock to lock the door \n";
     welcome += "/reset to reset password attempts \n";
+    welcome += "/changepw to change to a random password \n";
     bot.sendMessage(chat_id, welcome, "");
     }
 
