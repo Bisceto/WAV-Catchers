@@ -12,10 +12,12 @@ const char* password = "qqqqqqqqq";
 char *server = "mqtt://192.168.39.51:1883"; 
 
 char *subscribeTopic = "arduino/command";
+char *changePW = "arduino/password";
 char *wrongpassword="outside_board/wrong_password_attempt";
 char *correctpassword="outside_board/correct_password_attempt";
 ESP32MQTTClient mqttClient; 
 int hold = 0;
+int hold2 = 0;
 //mqttClient.publish("other parameters", String(event.temperature), 0, false);
 
 //Servo parameters
@@ -34,7 +36,7 @@ RTC_DATA_ATTR int bootCount = 0;
 // Use @myidbot to find out the chat ID of an individual or a group
 // Also note that you need to click "start" on a bot before it can
 // message you
-#define CHAT_ID "1775195171"
+#define CHAT_ID "-4018259378"
 
 WiFiClientSecure client;
 UniversalTelegramBot bot(BOTtoken, client);
@@ -44,6 +46,7 @@ int botRequestDelay = 50;
 unsigned long lastTimeBotRan;
 // To store received Telegram message
 String telegramMessage = ""; 
+String pwmsg = "";
 
 // Handle what happens when you receive new messages
 void handleNewMessages(int numNewMessages) {
@@ -134,6 +137,11 @@ void loop() {
     bot.sendMessage(CHAT_ID, "3 wrong attempts, door is locked", "");
     hold = 0;
   }
+  if (hold2 == 1){
+    bot.sendMessage(CHAT_ID, pwmsg, "");
+    Serial.println(pwmsg);
+    hold2 = 0;
+  }
 }
 
 void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
@@ -148,11 +156,13 @@ void onConnectionEstablishedCallback(esp_mqtt_client_handle_t client)
                               else if (payload == "lock"){
                                 pwm.writeScaled(0.075);
                               }
-                              else {
-                                newpw_msg = String("New Password: ") +  String(payload.c_str());
-                                bot.sendMessage(chat_id, newpw_msg, "");
-                              }
                              });
+        mqttClient.subscribe(changePW, [](const String &payload)
+                             {Serial.println(String(subscribeTopic) + String(" ") + String(payload.c_str())) ;                               
+                              pwmsg = "New Password " + payload;
+                              hold2 = 1;
+                             });
+                             
         mqttClient.subscribe(wrongpassword, [](const String &payload)
                               {Serial.println(String() + String(" ") + String(payload.c_str())) ; 
                               if (payload == "1"){
